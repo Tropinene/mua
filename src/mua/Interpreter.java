@@ -1,5 +1,7 @@
 package mua;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.*;
 
 /**
@@ -36,6 +38,8 @@ public class Interpreter {
         // create the global para table.
         HashMap curParaTable = new HashMap<String, Value>();
         paraTableStack.push(curParaTable);
+        // add const variable.
+        addConstant();
         // the core of interpreter.
         while(scanPerWord.hasNext()) {
             String op = scanPerWord.next();
@@ -54,6 +58,19 @@ public class Interpreter {
         System.out.println();
         System.out.println();
         System.out.println("The [MUA] interpreter start...");
+    }
+
+    /**
+     * Add constant to global para table.
+     */
+    void addConstant() {
+        HashMap curParaTable = (HashMap) paraTableStack.pop();
+
+        Value constant = new Value("3.14159", NUMBER_);
+        String constantName = "pi";
+        curParaTable.put(constantName, constant);
+
+        paraTableStack.push(curParaTable);
     }
 
     /**
@@ -145,6 +162,23 @@ public class Interpreter {
 
             return para;
         }
+        else if(oprand.equals("random")) { /** - random <number> */
+            int num = Integer.parseInt(scanPerWord.next());
+            return new Value(String.valueOf(Math.random()*num), NUMBER_);
+        }
+        else if(oprand.equals("int")) { /** - int <number> */
+            int res = Integer.parseInt(scanPerWord.next());
+            return new Value(String.valueOf(res), NUMBER_);
+        }
+        else if(oprand.equals("sqrt")) { /** - sqrt <number> */
+            double f = Double.parseDouble(scanPerWord.next());
+            f = (double) Math.sqrt(f);
+            return new Value(String.valueOf(f), NUMBER_);
+        }
+        else if(oprand.equals("load")) { /** - load <word> */
+            String fileName = scanPerWord.next();
+            return muaLoad(fileName);
+        }
         else if(oprand.equals("exit")) {
             System.out.println("end the program.");
             System.exit(1);
@@ -235,5 +269,28 @@ public class Interpreter {
             }
         }
         return true;
+    }
+
+    /**
+     * Execute all the code in the file named word.
+     * @param fileName the file name.
+     * @return always return true.
+     */
+    Value muaLoad(String fileName) {
+        File file = new File(fileName);
+
+        Scanner mainScanner = scanPerWord;
+        try {
+            scanPerWord = new Scanner(file);
+        } catch (FileNotFoundException e) {
+            return errorThrow(e.getMessage());
+        }
+
+        Value res = null;
+        while (scanPerWord.hasNext()) {
+            res = selOprand(scanPerWord.next());
+        }
+        scanPerWord = mainScanner;
+        return res;
     }
 }
