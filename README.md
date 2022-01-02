@@ -20,8 +20,14 @@
 
 #### **如果你还看得见这句话，说明仓库里的代码还没有完成。**
 
-
-
 ## 语法说明
 
 [语法说明](https://github.com/Tropinene/mua/wiki)
+
+## 编译运行
+
+```bash
+sh build.sh
+sh run.sh
+```
+
