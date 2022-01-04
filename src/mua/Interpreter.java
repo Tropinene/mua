@@ -26,17 +26,17 @@ public class Interpreter {
      * In the process of function switching, use this to realize variable table switching.
      * The peek is current para table.
      */
-    private Stack paraTableStack;
+    private Stack <HashMap<String, Value>> paraTableStack;
     /** Store data about function. */
     private HashMap funcTable;
 
     public void run() {
         scanPerWord = new Scanner(System.in);
-        paraTableStack = new Stack<HashMap>();
+        paraTableStack = new Stack<>();
         startShow();
 
         // create the global para table.
-        HashMap curParaTable = new HashMap<String, Value>();
+        HashMap<String, Value> curParaTable = new HashMap<>();
         paraTableStack.push(curParaTable);
         // add const variable.
         addConstant();
@@ -64,7 +64,7 @@ public class Interpreter {
      * Add constant to global para table.
      */
     void addConstant() {
-        HashMap curParaTable = (HashMap) paraTableStack.pop();
+        HashMap<String, Value> curParaTable = paraTableStack.pop();
 
         Value constant = new Value("3.14159", NUMBER_);
         String constantName = "pi";
@@ -90,7 +90,7 @@ public class Interpreter {
      * @return the return value after the instruction is executed.
      */
     private Value selOprand(String oprand) {
-        HashMap curParaTable = (HashMap) paraTableStack.peek();
+        HashMap<String, Value> curParaTable = paraTableStack.peek();
 
         if(oprand.charAt(0) == '"') {
             return new Value(oprand.substring(1), WORD_);
@@ -106,7 +106,7 @@ public class Interpreter {
             Value res = null;
 
             if(curParaTable.containsKey(paraName.getVal())) {
-                res = (Value) curParaTable.get(paraName.getVal());
+                res =  curParaTable.get(paraName.getVal());
             }
             else {
                 errorThrow("The variable ["+paraName.getVal()+"] cannot be found in table.");
@@ -119,13 +119,16 @@ public class Interpreter {
             Value res = null;
 
             if(curParaTable.containsKey(paraName)) {
-                res = (Value) curParaTable.get(paraName);
+                res = curParaTable.get(paraName);
             }
             else {
                 errorThrow("The variable ["+paraName+"] cannot be found in table.");
             }
 
             return res;
+        }
+        else if(oprand.charAt(0) == '[') {
+            return readList(oprand);
         }
         else if(oprand.equals("read")) {
             String tmp = scanPerWord.next();
@@ -146,10 +149,10 @@ public class Interpreter {
         else if(oprand.equals("mod")) {
             return muaCalculate(5);
         }
-        else if(oprand.equals("make")) { /** - make <name> <value> */
+        else if(oprand.equals("make")) { /* - make <name> <value> */
             return muaMake();
         }
-        else if(oprand.equals("print")) { /** - print <value> */
+        else if(oprand.equals("print")) { /* - print <value> */
             Value para = selOprand(scanPerWord.next());
 
             if(para.getType() == LIST_) {
@@ -162,22 +165,86 @@ public class Interpreter {
 
             return para;
         }
-        else if(oprand.equals("random")) { /** - random <number> */
+        else if(oprand.equals("random")) { /* - random <number> */
             int num = Integer.parseInt(scanPerWord.next());
             return new Value(String.valueOf(Math.random()*num), NUMBER_);
         }
-        else if(oprand.equals("int")) { /** - int <number> */
+        else if(oprand.equals("int")) { /* - int <number> */
             int res = Integer.parseInt(scanPerWord.next());
             return new Value(String.valueOf(res), NUMBER_);
         }
-        else if(oprand.equals("sqrt")) { /** - sqrt <number> */
+        else if(oprand.equals("sqrt")) { /* - sqrt <number> */
             double f = Double.parseDouble(scanPerWord.next());
-            f = (double) Math.sqrt(f);
+            f = Math.sqrt(f);
             return new Value(String.valueOf(f), NUMBER_);
         }
-        else if(oprand.equals("load")) { /** - load <word> */
+        else if(oprand.equals("load")) { /* - load <word> */
             String fileName = scanPerWord.next();
             return muaLoad(fileName);
+        }
+        else if(oprand.equals("isname")) {
+            Value name = selOprand(scanPerWord.next());
+
+            // todo check function name
+            if(curParaTable.containsKey(name.getVal())) {
+                return new Value("true", BOOl_);
+            }
+            else {
+                return new Value("false", BOOl_);
+            }
+        }
+        else if(oprand.equals("isnumber")) {
+            return checkType(NUMBER_);
+        }
+        else if(oprand.equals("isbool")) {
+            return checkType(BOOl_);
+        }
+        else if(oprand.equals("isword")) {
+            return checkType(WORD_);
+        }
+        else if(oprand.equals("islist")) {
+            return checkType(LIST_);
+        }
+        else if(oprand.equals("and")) {
+            return muaLogic(1);
+        }
+        else if(oprand.equals("or")) {
+            return muaLogic(2);
+        }
+        else if(oprand.equals("not")) {
+            Value para = selOprand(scanPerWord.next());
+
+            if(para.getType() == BOOl_) {
+                if(para.getVal().compareTo("true") == 0) {
+                    return new Value("false", BOOl_);
+                }
+                else {
+                    return new Value("true", BOOl_);
+                }
+            }
+            else {
+                errorThrow("Logic operation type is not BOOL");
+            }
+        }
+        else if(oprand.equals("run")) {
+            Value list = selOprand(scanPerWord.next());
+            return runList(list.getVal());
+        }
+        else if(oprand.equals("if")) {
+            Value opFlag = selOprand(scanPerWord.next());
+
+            if(opFlag.getType() != BOOl_) {
+                errorThrow("The type after IF is not a BOOL");
+            }
+
+            Value list1 = selOprand(scanPerWord.next());
+            Value list2 = selOprand(scanPerWord.next());
+            if(opFlag.getVal().compareTo("true") == 0) {
+                return runList(list1.getVal());
+            }
+            else {
+                return runList(list2.getVal());
+            }
         }
         else if(oprand.equals("exit")) {
             System.out.println("end the program.");
@@ -203,12 +270,95 @@ public class Interpreter {
 //            analysisFunc(paraName.getVal(), para2);
         }
         else {
-            HashMap curParaTable = (HashMap) paraTableStack.pop();
+            HashMap<String, Value> curParaTable = paraTableStack.pop();
             curParaTable.put(paraName.getVal(), para);
             paraTableStack.push(curParaTable);
         }
 
         return para;
+    }
+
+    /**
+     * Read list body.
+     * @param oprand oprand.
+     * @return the String of list body.
+     */
+    Value readList(String oprand) {
+        StringBuilder body = new StringBuilder(oprand);
+
+        /**
+         * Use loop to get the content of list.
+         * If the number of '[' does not equal to ']', it means we need scan more.
+         */
+        int cnt = 0;
+        while (true) {
+            for(int i=0; i<body.length(); i++) {
+                if(body.charAt(i) == '[') {
+                    cnt++;
+                }
+                if(body.charAt(i) == ']') {
+                    cnt--;
+                }
+            }
+
+            if(cnt == 0)
+                break;
+            else {
+                // if there is not enough ']' to match '[', it means there is still input.
+                String tmp = scanPerWord.next();
+                body.append(" ").append(tmp);
+            }
+            cnt = 0;
+        }
+
+        /**
+         * Traverse the body and check if the body is composed of two lists.
+         * If it is, it is a function.
+         * Otherwise, it is a normal list.
+         */
+        int numOfList = 0;
+        cnt = 0;
+        for(int i=1; i<body.length()-1; i++) {
+            if(body.charAt(i) == '[')
+                cnt++;
+            if(body.charAt(i) == ']') {
+                cnt--;
+                if(cnt == 0)
+                    numOfList++;
+            }
+        }
+        String tmp = body.substring(1, body.length()-1).trim();
+        boolean flag = tmp.charAt(0) == '[' && tmp.charAt(tmp.length() - 1) == ']';
+
+        if(numOfList == 2 && flag) {
+            return new Value(body.toString(), FUNCTION_);
+        }
+        else
+            return new Value(body.toString(), LIST_);
+    }
+
+    /**
+     * to run the content of list.
+     * - run <list>
+     * @param list the content of list which type in Java is String.
+     * @return <value>
+     */
+    Value runList(String list) {
+        if(list.charAt(0) != '[')
+            errorThrow("This is not a LIST!");
+
+        Scanner mainScanner = scanPerWord;
+        scanPerWord = new Scanner(list.substring(1,list.length()-1));
+
+        Value res = null;
+        while (scanPerWord.hasNext()) {
+            res = selOprand(scanPerWord.next());
+//            if(funcReturn)
+//                break;
+        }
+        scanPerWord = mainScanner;
+
+        return res;
     }
 
     /**
@@ -220,8 +370,14 @@ public class Interpreter {
      */
     Value muaCalculate(int state) {
         Value para1 = selOprand(scanPerWord.next());
-        double num1 = Double.parseDouble(para1.getVal());
         Value para2 = selOprand(scanPerWord.next());
+
+        /* add type check 22/01/04 */
+        if(para1.getType() != NUMBER_ || para2.getType() != NUMBER_) {
+            errorThrow("Arithmetic operation type is not a NUMBER.");
+        }
+
+        double num1 = Double.parseDouble(para1.getVal());
         double num2 = Double.parseDouble(para2.getVal());
 
         if(state == 1) {
@@ -292,5 +448,58 @@ public class Interpreter {
         }
         scanPerWord = mainScanner;
         return res;
+    }
+
+    /**
+     * Used to check whether [Value] is the selected type.
+     * - isxxxx <value>
+     * @param wait2Check the type we hope to be.
+     * @return true or false.
+     */
+    Value checkType(int wait2Check) {
+        Value para = selOprand(scanPerWord.next());
+
+        if(para.getType() == wait2Check) {
+            return new Value("true", BOOl_);
+        }
+        else {
+            return new Value("false", BOOl_);
+        }
+    }
+
+    /**
+     * Logic calculate for two values.
+     * - and/or <value> <value>
+     * @param type 1 -> and     2 -> or
+     * @return true or false.
+     */
+    Value muaLogic(int type) {
+        Value para1 = selOprand(scanPerWord.next());
+        Value para2 = selOprand(scanPerWord.next());
+
+        if(para1.getType() != BOOl_ || para2.getType() != BOOl_) {
+            errorThrow("Logic operation type is not BOOL");
+        }
+
+        if(type == 1) {
+            if(para1.getVal().compareTo("true") == 0
+                    && para2.getVal().compareTo("true") == 0) {
+                return new Value("true", BOOl_);
+            }
+            else {
+                return new Value("false", BOOl_);
+            }
+        }
+        else if(type == 2) {
+            if(para1.getVal().compareTo("true") == 0
+                    || para2.getVal().compareTo("true") == 0) {
+                return new Value("true", BOOl_);
+            }
+            else
+                return new Value("true", BOOl_);
+        }
+        else
+            errorThrow("???");
+        return null;
     }
 }

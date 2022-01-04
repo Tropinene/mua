@@ -1,0 +1,29 @@
+print "abcd12
+print "answer:abcd12
+
+make "a 16
+print :a
+print "answer:16
+
+make "b "a
+print thing :b
+print "answer:16
+
+make "c mul add :a 13 :a
+print sub :c 6
+print "answer:458.0
+
+print div 12 5
+print "answer:2.4
+
+print mod 12 5
+print "answer:2.0
+
+make "d read
+1234dd
+make "e print :d
+print "answer:1234dd
+
+print :e
+print "answer:1234dd
+
