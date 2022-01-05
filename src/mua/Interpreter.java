@@ -246,6 +246,15 @@ public class Interpreter {
                 return runList(list2.getVal());
             }
         }
+        else if(oprand.equals("eq")) {
+            return valCompare(1);
+        }
+        else if(oprand.equals("gt")) {
+            return valCompare(2);
+        }
+        else if(oprand.equals("lt")) {
+            return valCompare(3);
+        }
         else if(oprand.equals("exit")) {
             System.out.println("end the program.");
             System.exit(1);
@@ -501,5 +510,28 @@ public class Interpreter {
         else
             errorThrow("???");
         return null;
+    }
+
+    /**
+     * value compare
+     * @param type 1 -> eq      2 -> gt     3 -> lt
+     * @return  true or false
+     */
+    Value valCompare(int type) {
+        Value para1 = selOprand(scanPerWord.next());
+        Value para2 = selOprand(scanPerWord.next());
+
+        int res = para1.getVal().compareTo(para2.getVal());
+        if(type == 1 && res == 0) {
+            return new Value("true", BOOl_);
+        }
+        if(type == 2 && res > 0) {
+            return new Value("true", BOOl_);
+        }
+        if(type == 3 && res < 0) {
+            return new Value("true", BOOl_);
+        }
+
+        return new Value("false", BOOl_);
     }
 }
