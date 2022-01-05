@@ -23,8 +23,10 @@ public class Value {
     public String getVal() {
         return val;
     }
-
     public int getType() {
         return type;
     }
+
+    public void setType(int t) {this.type = t;}
+    public void setVal(String s) {this.val = s;}
 }

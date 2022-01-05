@@ -44,7 +44,10 @@ public class Interpreter {
         while(scanPerWord.hasNext()) {
             String op = scanPerWord.next();
             Value res = selOprand(op);
+            if(res.getVal().compareTo("false") == 0)
+                break;
         }
+        System.out.println("end the program.");
     }
 
     /** Output some information before the program runs */
@@ -165,6 +168,13 @@ public class Interpreter {
 
             return para;
         }
+        else if(oprand.equals("erase")) {
+            String tmp = scanPerWord.next();
+            Value res = curParaTable.get(tmp.substring(1));
+            res.setVal("");
+            curParaTable.put(tmp.substring(1), res);
+            return res;
+        }
         else if(oprand.equals("random")) { /* - random <number> */
             int num = Integer.parseInt(scanPerWord.next());
             return new Value(String.valueOf(Math.random()*num), NUMBER_);
@@ -186,12 +196,14 @@ public class Interpreter {
             Value name = selOprand(scanPerWord.next());
 
             // todo check function name
-            if(curParaTable.containsKey(name.getVal())) {
-                return new Value("true", BOOl_);
+            Stack <HashMap<String, Value>> tmpStack = paraTableStack;
+            while (!tmpStack.isEmpty()) {
+                HashMap <String, Value> tmpParaTable = tmpStack.pop();
+                if (tmpParaTable.containsKey(name.getVal())) {
+                    return new Value("true", BOOl_);
+                }
             }
-            else {
-                return new Value("false", BOOl_);
-            }
+            return new Value("false", BOOl_);
         }
         else if(oprand.equals("isnumber")) {
             return checkType(NUMBER_);
@@ -204,6 +216,20 @@ public class Interpreter {
         }
         else if(oprand.equals("islist")) {
             return checkType(LIST_);
+        }
+        else if(oprand.equals("isempty")) {
+            Value para = selOprand(scanPerWord.next());
+            if(para.getType() == WORD_) {
+                return emptyCheck(para.getVal().trim());
+            }
+            else if(para.getType() == LIST_) {
+                String val = para.getVal();
+                val = val.substring(1, val.length()-1);
+                return emptyCheck(val.trim());
+            }
+            else {
+                errorThrow("Type of [isempty] should be [WORD] or [LIST].");
+            }
         }
         else if(oprand.equals("and")) {
             return muaLogic(1);
@@ -255,9 +281,29 @@ public class Interpreter {
         else if(oprand.equals("lt")) {
             return valCompare(3);
         }
+        else if(oprand.equals("first")) {
+            Value para = selOprand(scanPerWord.next());
+            if(para.getType() == WORD_) {
+                String res = "";
+                res += para.getVal().charAt(0);
+                return new Value(res, WORD_);
+            }
+            else if(para.getType() == LIST_) {
+                String content = para.getVal().substring(1,para.getVal().length()-1).trim();
+                Stack<String> elementStack = splitByBlank(content);
+                if(elementStack.size() == 0)
+                    return new Value("[]", LIST_);
+
+                elementStack = reverseStack(elementStack);
+                String res = (String) elementStack.peek();
+                if(res.charAt(0) == '[')
+                    return new Value(res, LIST_);
+                else
+                    return new Value(res, WORD_);
+            }
+        }
         else if(oprand.equals("exit")) {
-            System.out.println("end the program.");
-            System.exit(1);
+            return new Value("false", BOOl_);
         }
         else {
             errorThrow("Unknown instruction: " + oprand);
@@ -295,19 +341,17 @@ public class Interpreter {
     Value readList(String oprand) {
         StringBuilder body = new StringBuilder(oprand);
 
-        /**
+        /*
          * Use loop to get the content of list.
          * If the number of '[' does not equal to ']', it means we need scan more.
          */
         int cnt = 0;
         while (true) {
             for(int i=0; i<body.length(); i++) {
-                if(body.charAt(i) == '[') {
+                if(body.charAt(i) == '[')
                     cnt++;
-                }
-                if(body.charAt(i) == ']') {
+                if(body.charAt(i) == ']')
                     cnt--;
-                }
             }
 
             if(cnt == 0)
@@ -320,7 +364,7 @@ public class Interpreter {
             cnt = 0;
         }
 
-        /**
+        /*
          * Traverse the body and check if the body is composed of two lists.
          * If it is, it is a function.
          * Otherwise, it is a normal list.
@@ -337,9 +381,14 @@ public class Interpreter {
             }
         }
         String tmp = body.substring(1, body.length()-1).trim();
-        boolean flag = tmp.charAt(0) == '[' && tmp.charAt(tmp.length() - 1) == ']';
 
-        if(numOfList == 2 && flag) {
+        boolean funcFlag;
+        if(tmp.compareTo("") == 0)
+            funcFlag = false;
+        else
+            funcFlag = tmp.charAt(0) == '[' && tmp.charAt(tmp.length() - 1) == ']';
+
+        if(numOfList == 2 && funcFlag) {
             return new Value(body.toString(), FUNCTION_);
         }
         else
@@ -533,5 +582,50 @@ public class Interpreter {
         }
 
         return new Value("false", BOOl_);
+    }
+
+    /**
+     * to check the string is empty or not.
+     * @param s the string wait to check
+     * @return true or false.
+     */
+    Value emptyCheck(String s) {
+        if(s.compareTo("") == 0)
+            return new Value("true", BOOl_);
+        else
+            return new Value("false", BOOl_);
+    }
+
+    Stack<String> splitByBlank(String s) {
+        s = s.trim();
+        Stack<String> str = new Stack<String>();
+        int cnt=0;
+        StringBuilder unit = new StringBuilder();
+        for(int i=0; i<s.length(); i++) {
+            if(s.charAt(i) == ' ' && cnt == 0) {
+                unit = new StringBuilder(unit.toString().trim());
+                str.push(unit.toString());
+                unit = new StringBuilder();
+                continue;
+            }
+            if(s.charAt(i) == '[')
+                cnt++;
+            else if(s.charAt(i) == ']')
+                cnt--;
+            unit.append(s.charAt(i));
+        }
+        str.push(unit.toString());
+
+        return str;
+    }
+
+    Stack<String> reverseStack(Stack<String> s) {
+        Stack<String> res = new Stack<String>();
+        int size = s.size();
+        for(int i=0; i<size; i++) {
+            String tmp = s.pop();
+            res.push(tmp);
+        }
+        return res;
     }
 }
