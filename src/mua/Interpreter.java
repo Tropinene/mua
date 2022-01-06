@@ -282,25 +282,10 @@ public class Interpreter {
             return valCompare(3);
         }
         else if(oprand.equals("first")) {
-            Value para = selOprand(scanPerWord.next());
-            if(para.getType() == WORD_) {
-                String res = "";
-                res += para.getVal().charAt(0);
-                return new Value(res, WORD_);
-            }
-            else if(para.getType() == LIST_) {
-                String content = para.getVal().substring(1,para.getVal().length()-1).trim();
-                Stack<String> elementStack = splitByBlank(content);
-                if(elementStack.size() == 0)
-                    return new Value("[]", LIST_);
-
-                elementStack = reverseStack(elementStack);
-                String res = (String) elementStack.peek();
-                if(res.charAt(0) == '[')
-                    return new Value(res, LIST_);
-                else
-                    return new Value(res, WORD_);
-            }
+            return getElement(1);
+        }
+        else if(oprand.equals("last")) {
+            return getElement(2);
         }
         else if(oprand.equals("exit")) {
             return new Value("false", BOOl_);
@@ -596,6 +581,11 @@ public class Interpreter {
             return new Value("false", BOOl_);
     }
 
+    /**
+     * Separate the elements in the list into a stack.
+     * @param s the content of list.
+     * @return the stack filled with elements.
+     */
     Stack<String> splitByBlank(String s) {
         s = s.trim();
         Stack<String> str = new Stack<String>();
@@ -619,6 +609,11 @@ public class Interpreter {
         return str;
     }
 
+    /**
+     * reverse the stack
+     * @param s stack
+     * @return the stack after reversing
+     */
     Stack<String> reverseStack(Stack<String> s) {
         Stack<String> res = new Stack<String>();
         int size = s.size();
@@ -627,5 +622,38 @@ public class Interpreter {
             res.push(tmp);
         }
         return res;
+    }
+
+    /**
+     * return the element in the list.
+     * @param type 1 -> first       2 -> last
+     * @return the value of element
+     */
+    Value getElement(int type) {
+        Value para = selOprand(scanPerWord.next());
+        if(para.getType() == WORD_) {
+            String res = "";
+            res += para.getVal().charAt(para.getVal().length()-1);
+            return new Value(res, WORD_);
+        }
+        else if(para.getType() == LIST_) {
+            String content = para.getVal().substring(1,para.getVal().length()-1).trim();
+            Stack<String> elementStack = splitByBlank(content);
+            if(elementStack.size() == 0)
+                return new Value("[]", LIST_);
+
+            if(type == 1) {
+                elementStack = reverseStack(elementStack);
+            }
+            String res = (String) elementStack.peek();
+            if(res.charAt(0) == '[')
+                return new Value(res, LIST_);
+            else
+                return new Value(res, WORD_);
+        }
+        else {
+            errorThrow("The type of [first] should be LIST or WORD");
+        }
+        return null;
     }
 }
