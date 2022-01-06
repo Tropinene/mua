@@ -287,6 +287,12 @@ public class Interpreter {
         else if(oprand.equals("last")) {
             return getElement(2);
         }
+        else if(oprand.equals("butfirst")) {
+            return getElement(3);
+        }
+        else if(oprand.equals("butlast")) {
+            return getElement(4);
+        }
         else if(oprand.equals("exit")) {
             return new Value("false", BOOl_);
         }
@@ -633,7 +639,17 @@ public class Interpreter {
         Value para = selOprand(scanPerWord.next());
         if(para.getType() == WORD_) {
             String res = "";
-            res += para.getVal().charAt(para.getVal().length()-1);
+            if(type == 1)
+                res += para.getVal().charAt(0);
+            else if(type == 2) {
+                res += para.getVal().charAt(para.getVal().length() - 1);
+            }
+            else if(type == 3){
+                res  = para.getVal().substring(1);
+            }
+            else {
+                res = para.getVal().substring(0, para.getVal().length()-1);
+            }
             return new Value(res, WORD_);
         }
         else if(para.getType() == LIST_) {
@@ -642,14 +658,35 @@ public class Interpreter {
             if(elementStack.size() == 0)
                 return new Value("[]", LIST_);
 
-            if(type == 1) {
+            if(type != 2) {
                 elementStack = reverseStack(elementStack);
             }
-            String res = (String) elementStack.peek();
-            if(res.charAt(0) == '[')
-                return new Value(res, LIST_);
-            else
-                return new Value(res, WORD_);
+
+            if(type <= 2) {
+                String res = (String) elementStack.peek();
+                if (res.charAt(0) == '[')
+                    return new Value(res, LIST_);
+                else
+                    return new Value(res, WORD_);
+            }
+            else {
+                String res = "";
+                int size=0;
+                if(type == 3) {
+                    elementStack.pop();
+                    size = elementStack.size();
+                }
+                else {
+                     size = elementStack.size() - 1;
+                }
+                for (int i = 0; i < size; i++) {
+                    res += elementStack.pop();
+                    res += " ";
+                }
+                res = res.trim();
+
+                return new Value("["+res+"]", LIST_);
+            }
         }
         else {
             errorThrow("The type of [first] should be LIST or WORD");
