@@ -1,18 +1,6 @@
-make "a [[a] b c ]
-make "b [a b c [d]]
-make "c "abcd
+make "f [
+    [x]
+    [return add :x 1]
+]
 
-print first :a
-print last :a
-print butfirst :a
-print butlast :a
-
-print first :b
-print last :b
-print butfirst :b
-print butlast :b
-
-print first :c
-print last :c
-print butfirst :c
-print butlast :c
+print f 3

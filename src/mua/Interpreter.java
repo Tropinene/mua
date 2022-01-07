@@ -28,11 +28,12 @@ public class Interpreter {
      */
     private Stack <HashMap<String, Value>> paraTableStack;
     /** Store data about function. */
-    private HashMap funcTable;
+    private HashMap<String, Function> funcTable;
 
     public void run() {
         scanPerWord = new Scanner(System.in);
         paraTableStack = new Stack<>();
+        funcTable = new HashMap<String, Function>();
         startShow();
 
         // create the global para table.
@@ -44,7 +45,7 @@ public class Interpreter {
         while(scanPerWord.hasNext()) {
             String op = scanPerWord.next();
             Value res = selOprand(op);
-            if(res.getVal().compareTo("false") == 0)
+            if(res.getVal().compareTo("end") == 0)
                 break;
         }
         System.out.println("end the program.");
@@ -96,7 +97,11 @@ public class Interpreter {
         HashMap<String, Value> curParaTable = paraTableStack.peek();
 
         if(oprand.charAt(0) == '"') {
-            return new Value(oprand.substring(1), WORD_);
+            String s = oprand.substring(1);
+            if(isNumeric(s))
+                return new Value(s, NUMBER_);
+            else
+                return new Value(s, WORD_);
         }
         else if(isNumeric(oprand)) {
             return new Value(oprand, NUMBER_);
@@ -198,7 +203,7 @@ public class Interpreter {
             // todo check function name
             Stack <HashMap<String, Value>> tmpStack = paraTableStack;
             while (!tmpStack.isEmpty()) {
-                HashMap <String, Value> tmpParaTable = tmpStack.pop();
+                HashMap <String, Value> tmpParaTable = tmpStack.peek();
                 if (tmpParaTable.containsKey(name.getVal())) {
                     return new Value("true", BOOl_);
                 }
@@ -293,10 +298,56 @@ public class Interpreter {
         else if(oprand.equals("butlast")) {
             return getElement(4);
         }
+        else if(oprand.equals("word")) {
+            Value para1 = selOprand(scanPerWord.next());
+            if(para1.getType() != WORD_)
+                errorThrow("The type of first para of [word] should be [WORD].");
+            Value para2 = selOprand(scanPerWord.next());
+            if(para2.getType() != WORD_ && para2.getType() != BOOl_ && para2.getType() != NUMBER_)
+                errorThrow("The type of second para of [word] should be [WORD | NUMBER | BOOL].");
+
+            return new Value(para1.getVal()+para2.getVal(), WORD_);
+        }
+        else if(oprand.equals("sentence")) {
+            Value para1 = selOprand(scanPerWord.next());
+            Value para2 = selOprand(scanPerWord.next());
+            String s1 = para1.getVal();
+            String s2 = para2.getVal();
+
+            if(para1.getType() == LIST_)
+                s1 = s1.substring(1, s1.length()-1);
+            if(para2.getType() == LIST_)
+                s2 = s2.substring(1, s2.length()-1);
+
+            return new Value("["+s1+s2+"]", LIST_);
+        }
+        else if(oprand.equals("join")) {
+            Value para1 = selOprand(scanPerWord.next());
+            if(para1.getType() != LIST_)
+                errorThrow("The first para of [join] should be a [LIST].");
+            Value para2 = selOprand(scanPerWord.next());
+            String s1 = para1.getVal().substring(1, para1.getVal().length()-1);
+            String s2 = para2.getVal();
+
+            return new Value("["+s1+s2+"]", LIST_);
+        }
+        else if(oprand.equals("list")) {
+            Value para1 = selOprand(scanPerWord.next());
+            Value para2 = selOprand(scanPerWord.next());
+            String s1 = para1.getVal();
+            String s2 = para2.getVal();
+            return new Value("["+s1+s2+"]", LIST_);
+        }
         else if(oprand.equals("exit")) {
-            return new Value("false", BOOl_);
+            return new Value("end", WORD_);
         }
         else {
+            if(curParaTable.containsKey(oprand)) {
+                Value tmp = curParaTable.get(oprand);
+                if(tmp.getType() == FUNCTION_)
+                    return runFunc(oprand);
+            }
+
             errorThrow("Unknown instruction: " + oprand);
         }
         return null;
@@ -313,13 +364,11 @@ public class Interpreter {
 
         if(para.getType() == FUNCTION_) {
 //            funcNameTable.add(paraName.getVal());
-//            analysisFunc(paraName.getVal(), para2);
+            analysisFunc(paraName.getVal(), para);
         }
-        else {
-            HashMap<String, Value> curParaTable = paraTableStack.pop();
-            curParaTable.put(paraName.getVal(), para);
-            paraTableStack.push(curParaTable);
-        }
+        HashMap<String, Value> curParaTable = paraTableStack.pop();
+        curParaTable.put(paraName.getVal(), para);
+        paraTableStack.push(curParaTable);
 
         return para;
     }
@@ -400,10 +449,14 @@ public class Interpreter {
         scanPerWord = new Scanner(list.substring(1,list.length()-1));
 
         Value res = null;
+
         while (scanPerWord.hasNext()) {
-            res = selOprand(scanPerWord.next());
-//            if(funcReturn)
-//                break;
+            String op = scanPerWord.next();
+            if(op.equals("return")) {
+                res = selOprand(scanPerWord.next());
+                break;
+            }
+            res = selOprand(op);
         }
         scanPerWord = mainScanner;
 
@@ -545,7 +598,7 @@ public class Interpreter {
                 return new Value("true", BOOl_);
             }
             else
-                return new Value("true", BOOl_);
+                return new Value("false", BOOl_);
         }
         else
             errorThrow("???");
@@ -637,6 +690,7 @@ public class Interpreter {
      */
     Value getElement(int type) {
         Value para = selOprand(scanPerWord.next());
+        assert para != null;
         if(para.getType() == WORD_) {
             String res = "";
             if(type == 1)
@@ -670,7 +724,7 @@ public class Interpreter {
                     return new Value(res, WORD_);
             }
             else {
-                String res = "";
+                StringBuilder res = new StringBuilder();
                 int size=0;
                 if(type == 3) {
                     elementStack.pop();
@@ -680,10 +734,10 @@ public class Interpreter {
                      size = elementStack.size() - 1;
                 }
                 for (int i = 0; i < size; i++) {
-                    res += elementStack.pop();
-                    res += " ";
+                    res.append(elementStack.pop());
+                    res.append(" ");
                 }
-                res = res.trim();
+                res = new StringBuilder(res.toString().trim());
 
                 return new Value("["+res+"]", LIST_);
             }
@@ -692,5 +746,86 @@ public class Interpreter {
             errorThrow("The type of [first] should be LIST or WORD");
         }
         return null;
+    }
+
+    void analysisFunc(String name, Value wholeBody) {
+        String tmp = wholeBody.getVal();
+        int list1_start=0, list1_end=0;
+        int list2_start=0, list2_end=0;
+
+        int cnt = 0;
+        for(int i=1; i<tmp.length(); i++) {
+            if(tmp.charAt(i) == '[') {
+                if(cnt == 0)
+                    list1_start = i;
+                cnt++;
+            }
+            if(tmp.charAt(i) == ']') {
+                cnt--;
+                if(cnt == 0) {
+                    list1_end = i;
+                    break;
+                }
+            }
+        }
+        for(int i=list1_end+1; i<tmp.length(); i++) {
+            if(tmp.charAt(i) == '[') {
+                if(cnt == 0)
+                    list2_start = i;
+                cnt++;
+            }
+            if(tmp.charAt(i) == ']') {
+                cnt--;
+                if(cnt == 0) {
+                    list2_end = i;
+                    break;
+                }
+            }
+        }
+
+        Value paraList = new Value(tmp.substring(list1_start, list1_end+1), LIST_);
+        Value trueBody = new Value(tmp.substring(list2_start, list2_end+1), LIST_);
+
+        Function f = new Function(name, paraList, trueBody);
+        funcTable.put(name, f);
+    }
+
+    Value runFunc(String funcName) {
+        Function F = funcTable.get(funcName);
+
+        /* Process variables first */
+        if(F.getParaList().getVal().compareTo("[]") == 0) {
+            F.setLocalVarTable(null);
+        }
+        else {
+            String tmp = F.getParaList().getVal();
+            tmp = tmp.substring(1, tmp.length()-1);
+            String[] var = tmp.split("\\s+");
+            ArrayList<Value> list = new ArrayList<Value>();
+
+            for (String s : var) {
+                if (scanPerWord.hasNext()) {
+                    Value varName = selOprand(scanPerWord.next());
+                    list.add(varName);
+                } else
+                    errorThrow("Missing parameters:" + s);
+            }
+            for (int i = 0; i < list.size(); i++) {
+                /*
+                 * In order to complete P4,
+                 * the case where the variable is a function is not considered here
+                 */
+//                System.out.println(var[i] + " " +list.get(i).getVal());
+                F.getLocalVarTable().put(var[i], list.get(i));
+            }
+        }
+        Value funcItself = new Value(F.setValue(), FUNCTION_);
+        F.getLocalVarTable().put(funcName, funcItself);
+
+        /* The part of the function that actually runs */
+        paraTableStack.push(F.getLocalVarTable());
+        Value res = runList(F.getFuncBody().getVal());
+        paraTableStack.pop();
+        return res;
     }
 }
